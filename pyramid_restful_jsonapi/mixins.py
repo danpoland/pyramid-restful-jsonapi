@@ -28,7 +28,7 @@ class IncludeRelationshipsMixin:
         if includes:
             kwargs['include_data'] = includes
 
-        return super(IncludeDataMixin, self).get_schema(*args, **kwargs)
+        return super(IncludeRelationshipsMixin, self).get_schema(*args, **kwargs)
 
     def get_query(self):
         """
@@ -37,7 +37,7 @@ class IncludeRelationshipsMixin:
         queries required for the request.
         """
 
-        query = super(IncludeDataMixin, self).get_query()
+        query = super(IncludeRelationshipsMixin, self).get_query()
         includables = getattr(self, 'includable_relationships', [])
 
         if includables:
@@ -78,7 +78,7 @@ class IncludableRelationship(Relationship):
 
     def __init__(self, include_attribute=None, *args, **kwargs):
         self.include_attribute = include_attribute
-        super(MetaRelationship, self).__init__(*args, **kwargs)
+        super(IncludableRelationship, self).__init__(*args, **kwargs)
 
     def _serialize(self, value, attr, obj):
         dict_class = self.parent.dict_class if self.parent else dict

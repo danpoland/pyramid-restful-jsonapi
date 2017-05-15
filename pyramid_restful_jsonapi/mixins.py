@@ -112,3 +112,61 @@ class IncludableRelationship(Relationship):
                     self._serialize_included(value)
 
         return ret
+
+
+class NestableSchemaMixin:
+    """
+    I forget where I left off on this but I think this will only work for a single level of nesting.
+
+    Used when you need to use a Nested field with a JSONAPI Schema.
+    It formats the errors so that the nested schemas errors pointers have the correct attribute path.
+
+    For this to work, if a nested schema needs to have many=True, set it on an instance of the schema, not
+    as a Nested argument (you will get a Invalid Type error).
+
+    GOOD: fields.Nested(MySchema(many=True), required=True)
+    BAD:  fields.Nested(MySchema,many=True, required=True)
+    """
+
+    def format_nested_errors(self, key, errors):
+        """
+        Updates the pointer attribute in an errors object so that it points to the nested attribute.
+
+        :param key: The nested field name.
+        :param errors: An array of already jsonapi formatted errors.
+        :return: The formatted errors array.
+        """
+
+        for error in errors:
+            source = error['source']
+            source['pointer'] = '/data/attributes/{}'.format(key) + source['pointer']
+
+        return errors
+
+    def format_errors(self, errors, many):
+        if not errors:
+            return {}
+        if isinstance(errors, (list, tuple)):
+            return {'errors': errors}
+
+        formatted_errors = []
+
+        if many:  # won't ever be a nested jsonapi schema
+            for index, errors in errors.items():
+                for field_name, field_errors in errors.items():
+                    formatted_errors.extend(
+                        [self.format_error(field_name, message, index=index) for message in field_errors])
+        else:
+            for field_name, field_errors in errors.items():
+                if isinstance(field_errors, dict):
+                    errors = field_errors.get('errors')
+
+                    if not errors:
+                        # Not JSON API formatted, happens when a required nested attribute does not exist in the data
+                        errors = self.format_errors(field_errors, False)['errors']
+
+                    formatted_errors.extend(self.format_nested_errors(field_name, errors))
+                else:
+                    formatted_errors.extend([self.format_error(field_name, message) for message in field_errors])
+
+        return {'errors': formatted_errors}

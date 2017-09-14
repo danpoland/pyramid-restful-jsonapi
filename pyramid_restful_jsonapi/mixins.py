@@ -20,7 +20,7 @@ class IncludeRelationshipsMixin:
             if key == self.QUERY_KEY:
                 for val in vals.split(','):  # Allow for a comma separated list of include values
                     if includable_names is None or val in includable_names:
-                        includes.append(val)
+                        includes.append(self.includable_relationships[val]['rel'])
 
         if includes:
             kwargs['include_data'] = includes

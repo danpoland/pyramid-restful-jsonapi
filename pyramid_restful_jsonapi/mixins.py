@@ -1,4 +1,4 @@
-class IncludeRelationshipsMixin:
+class IncludableViewMixin:
     """
     Parses query strings params for related objects that should be included in the serialized response.
     If includable_relationships is None then all relationships can be included.
@@ -25,7 +25,7 @@ class IncludeRelationshipsMixin:
         if includes:
             kwargs['include_data'] = includes
 
-        return super(IncludeRelationshipsMixin, self).get_schema(*args, **kwargs)
+        return super(IncludableViewMixin, self).get_schema(*args, **kwargs)
 
     def get_query(self):
         """
@@ -34,7 +34,7 @@ class IncludeRelationshipsMixin:
         queries required for the request.
         """
 
-        query = super(IncludeRelationshipsMixin, self).get_query()
+        query = super(IncludableViewMixin, self).get_query()
         includables = getattr(self, 'includable_relationships', [])
 
         if includables:
@@ -50,9 +50,10 @@ class IncludeRelationshipsMixin:
                 for name in requested_includes:
                     if name in available_includes:
                         field = self.includable_relationships[name]
+                        join = field.get('join')
 
-                        if field.get('join'):
-                            query = getattr(query, field.get('join'))(field['rel'])
+                        if join:
+                            query = getattr(query, join)(field['rel'])
 
                         # Apply optional options
                         options = field.get('options')

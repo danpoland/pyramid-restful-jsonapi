@@ -6,7 +6,7 @@ from unittest import TestCase, mock
 
 from marshmallow_jsonapi import Schema, fields
 
-from pyramid_restful_jsonapi.mixins import IncludableSchemaMixin
+from pyramid_restful_jsonapi.mixins import IncludableSchemaMixin, IncludableViewMixin
 
 Account = namedtuple('Account', ['id', 'owner_id', 'profile_id', 'owner', 'profile'])
 User = namedtuple('User', ['id', 'name'])
@@ -49,17 +49,17 @@ class AccountSchema(IncludableSchemaMixin, Schema):
         includable_fields = {'owner': 'owner'}
 
 
-#
-# class AccountView:
-#     def get_query(self):
-#         return mock.Mock()
-#
-#
-# class ExpandableAccountView(ExpandableViewMixin, AccountView):
-#     schema_class = AccountSchema
-#     expandable_fields = {'owner': {
-#         'join': 'owner_id'
-#     }}
+class AccountView:
+    def get_query(self):
+        return mock.Mock()
+
+    def get_schema(self, *args, **kwargs):
+        return kwargs
+
+
+class IncludableAccountView(IncludableViewMixin, AccountView):
+    schema_class = AccountSchema
+    includable_relationships = {'owner': {'rel': 'owner', 'join': 'join'}}
 
 
 class IncludableSchemaTests(TestCase):
@@ -106,43 +106,49 @@ class IncludableSchemaTests(TestCase):
             }]
         }
 
-        print(content)
-
         assert content == expected
 
-#
-# class ExpandableViewTests(TestCase):
-#     """
-#     ExpandableViewMixin unit tests.
-#     """
-#
-#     def test_expandable_view_mixin(self):
-#         request = mock.Mock()
-#         request.params = {'expand': 'owner'}
-#         view = ExpandableAccountView()
-#         view.request = request
-#         query = view.get_query()
-#         assert query.join.called_once_with('owner_id')
-#
-#     def test_expandable_view_mixin_outer_join(self):
-#         request = mock.Mock()
-#         request.params = {'expand': 'owner'}
-#         view = ExpandableAccountView()
-#         view.expandable_fields = {'owner': {
-#             'outerjoin': 'owner_id',
-#         }}
-#         view.request = request
-#         query = view.get_query()
-#         assert query.outerjoin.called_once_with('owner_id')
-#
-#     def test_expandable_view_mixin_options(self):
-#         request = mock.Mock()
-#         request.params = {'expand': 'owner'}
-#         view = ExpandableAccountView()
-#         view.expandable_fields = {'owner': {
-#             'join': 'owner_id',
-#             'options': {'preselect': True}
-#         }}
-#         view.request = request
-#         query = view.get_query()
-#         assert query.options.called_once_with({'preselect': True})
+
+class IncludableViewTests(TestCase):
+    """
+    IncludableViewMixin unit tests.
+    """
+
+    def test_expandable_view_mixin(self):
+        request = mock.Mock()
+        request.params = {'include': 'owner'}
+        view = IncludableAccountView()
+        view.request = request
+        query = view.get_query()
+        assert query.join.called_once_with('owner')
+
+    def test_expandable_view_mixin_outer_join(self):
+        request = mock.Mock()
+        request.params = {'include': 'owner'}
+        view = IncludableAccountView()
+        view.expandable_fields = {'owner': {
+            'outerjoin': 'owner',
+        }}
+        view.request = request
+        query = view.get_query()
+        assert query.outerjoin.called_once_with('owner')
+
+    def test_expandable_view_mixin_options(self):
+        request = mock.Mock()
+        request.params = {'include': 'owner'}
+        view = IncludableAccountView()
+        view.expandable_fields = {'owner': {
+            'options': {'preselect': True}
+        }}
+        view.request = request
+        query = view.get_query()
+        assert query.options.called_once_with({'preselect': True})
+
+    def test_expandable_view_mixin_get_schema(self):
+        request = mock.Mock()
+        request.params = {'include': 'owner'}
+        view = IncludableAccountView()
+        view.request = request
+        schema = view.get_schema()
+
+        assert schema == {'include_data': ['owner']}

@@ -13,7 +13,7 @@ def extract_requested_includes(query_key, request):
 
     for key, val in request.params.items():
         if key == query_key:
-            requested_includes.extend(key.split(','))  # Allow for a comma separated list of include values
+            requested_includes.extend(val.split(','))  # Allow for a comma separated list of include values
 
     return requested_includes
 

@@ -1,3 +1,23 @@
+from marshmallow import pre_dump
+
+from marshmallow_jsonapi import SchemaOpts
+
+__all__ = [
+    'IncludableViewMixin',
+    'IncludableSchemaMixin'
+]
+
+
+def extract_requested_includes(query_key, request):
+    requested_includes = []
+
+    for key, val in request.params.items():
+        if key == query_key:
+            requested_includes.extend(key.split(','))  # Allow for a comma separated list of include values
+
+    return requested_includes
+
+
 class IncludableViewMixin:
     """
     Parses query strings params for related objects that should be included in the serialized response.
@@ -14,13 +34,12 @@ class IncludableViewMixin:
 
     def get_schema(self, *args, **kwargs):
         includable_names = self.includable_relationships.keys() if self.includable_relationships else None
+        requested_includes = extract_requested_includes(self.QUERY_KEY, self.request)
         includes = []
 
-        for key, vals in self.request.params.items():
-            if key == self.QUERY_KEY:
-                for val in vals.split(','):  # Allow for a comma separated list of include values
-                    if includable_names is None or val in includable_names:
-                        includes.append(self.includable_relationships[val]['rel'])
+        for requested_include in requested_includes:
+            if includable_names is None or requested_include in includable_names:
+                includes.append(self.includable_relationships[requested_include]['rel'])
 
         if includes:
             kwargs['include_data'] = includes
@@ -35,14 +54,10 @@ class IncludableViewMixin:
         """
 
         query = super(IncludableViewMixin, self).get_query()
-        includables = getattr(self, 'includable_relationships', [])
+        includables = self.includable_relationships if self.includable_relationships else []
 
         if includables:
-            requested_includes = []
-
-            for key, val in self.request.params.items():
-                if key == self.QUERY_KEY:
-                    requested_includes.extend(val.split(','))
+            requested_includes = extract_requested_includes(self.QUERY_KEY, self.request)
 
             if requested_includes:
                 available_includes = self.includable_relationships.keys()
@@ -62,6 +77,48 @@ class IncludableViewMixin:
                             query = query.options(*options)
 
         return query
+
+
+class IncludableOpts(SchemaOpts):
+    """
+    Adds includable_fields to Class Meta. `includable_fields` should be a dict of key = field name
+    that the attribute should be replaced with and val = the new attribute name.
+
+    Example:
+        includable_fields = {'paymentmethod': 'paymentmethod_rel')
+    """
+
+    def __init__(self, meta, *args, **kwargs):
+        super(IncludableOpts, self).__init__(meta, *args, **kwargs)
+        self.includable_fields = getattr(meta, 'includable_fields', {})
+
+
+class IncludableSchemaMixin:
+    """
+    Add support for replacing the attribute property of a relationship field when the relationship's data
+    should be included in the resulting data.
+    """
+
+    OPTIONS_CLASS = IncludableOpts
+    QUERY_KEY = 'include'
+
+    @pre_dump
+    def update_includables(self, data):
+        """
+        Swap the attribute value for requested includable relationships.
+        """
+
+        request = self.context.get('request')
+
+        if request:
+            requested_includes = extract_requested_includes(self.QUERY_KEY, request)
+            available_includes = self.opts.includable_fields.keys()
+
+            for requested_include in requested_includes:
+                if requested_include in available_includes:
+                    self.declared_fields[requested_include].attribute = self.opts.includable_fields[requested_include]
+
+        return data
 
 
 class NestableSchemaMixin:

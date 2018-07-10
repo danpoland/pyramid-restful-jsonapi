@@ -19,22 +19,13 @@ class JSONAPIPagination(PageNumberPagination):
         links = data.get('links', {})
         first_url = self.get_first_link()
         last_url = self.get_last_link()
-
-        if not data['data'] or first_url == last_url:  # Don't include links if there is only a single page.
-            return Response(json=data)
-
         next_url = self.get_next_link()
         previous_url = self.get_previous_link()
 
-        if next_url:
-            links['next'] = next_url
-        if previous_url:
-            links['prev'] = previous_url
-        if first_url:
-            links['first'] = first_url
-        if last_url:
-            links['last'] = last_url
-
+        links['next'] = next_url
+        links['prev'] = previous_url
+        links['first'] = first_url
+        links['last'] = last_url
         data['links'] = links
 
         meta = data.get('meta', {})
